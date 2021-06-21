@@ -44,8 +44,9 @@ namespace net
         bool Push(std::shared_ptr<MessageItem> item)
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
+            auto was_empty = queue_.empty();
             queue_.push(std::move(item));
-            return queue_.empty();
+            return was_empty;
         }
 
         // Pops from queue, returns true if queue is empty after pop.

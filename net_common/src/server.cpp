@@ -18,7 +18,7 @@ namespace net
         try
         {
             Listen();
-            auto run = [&]()
+            auto run = [this]()
             {
                 context_->run();
             };
@@ -46,7 +46,7 @@ namespace net
 
     void Server::Listen()
     {
-        auto on_accept = [&](std::error_code error, asio::ip::tcp::socket socket)
+        auto on_accept = [this](std::error_code error, asio::ip::tcp::socket socket)
         {
             if (error)
             {

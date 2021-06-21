@@ -30,7 +30,7 @@ namespace net
         if (context_->stopped() || !Connected())
             return;
 
-        auto disconnect = [&]()
+        auto disconnect = [this]()
         {
             socket_.close();
         };
@@ -46,7 +46,7 @@ namespace net
         if (context_->stopped())
             return;
 
-        auto push = [&]() // TODO: capture shared ptr by value
+        auto push = [this, command, body]()
         {
             auto item = std::make_shared<MessageItem>();
             item->header.command = command;
@@ -57,8 +57,8 @@ namespace net
                 item->body = std::move(body);
             }
 
-            auto empty = output_queue_.Push(std::move(item));
-            if (empty)
+            auto was_empty = output_queue_.Push(std::move(item));
+            if (was_empty)
                 SendHeader();
         };
         asio::post(*context_, push);
@@ -72,7 +72,7 @@ namespace net
 
         auto buffer = asio::buffer(&item->header, sizeof(Header));
 
-        auto on_sent = [&](std::error_code error, std::size_t size)
+        auto on_sent = [this, item](std::error_code error, std::size_t size)
         {
             if (error)
             {
@@ -103,7 +103,7 @@ namespace net
         auto body = item->body->SerializeAsString();
         auto buffer = asio::buffer(body.data(), body.size());
 
-        auto on_sent = [&](std::error_code error, std::size_t size)
+        auto on_sent = [this](std::error_code error, std::size_t size)
         {
             if (error)
             {
@@ -136,7 +136,7 @@ namespace net
         temp_input_item_ = std::make_shared<MessageItem>();
         auto buffer = asio::buffer(&temp_input_item_->header, sizeof(Header));
 
-        auto on_read = [&](std::error_code error, std::size_t size)
+        auto on_read = [this](std::error_code error, std::size_t size)
         {
             if (error)
             {
@@ -160,12 +160,12 @@ namespace net
 
     void Connection::ReadBody()
     {
-        std::string body;
+        std::vector<char> body;
         body.resize(temp_input_item_->header.body_size);
 
-        auto buffer = asio::buffer(&body[0], body.size());
+        auto buffer = asio::buffer(body.data(), body.size());
 
-        auto on_read = [&](std::error_code error, std::size_t size)
+        auto on_read = [this, &body](std::error_code error, std::size_t size)
         {
             if (error)
             {
@@ -179,7 +179,7 @@ namespace net
             }
 
             // successfully read body
-            temp_input_item_->body = ParseBody(temp_input_item_->header.command, body);
+            temp_input_item_->body = ParseBody(temp_input_item_->header.command, body.data(), body.size());
             ReadOneMessage();
         };
         asio::async_read(socket_, buffer, on_read);

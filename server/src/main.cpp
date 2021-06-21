@@ -8,8 +8,8 @@ public:
     void OnMessage(
         net::EnCommand command,
         std::shared_ptr<const google::protobuf::Message> body
-    ) {
-        
+    ) override {
+        std::cout << "You have a message." << std::endl;
     }
 };
 
@@ -25,5 +25,6 @@ int main()
     {
         server.SendToAll(net::EnCommand::kSendText, message);
         server.HandleMessages();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 }

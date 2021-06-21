@@ -16,7 +16,7 @@ namespace net
             connection_ = std::make_unique<Connection>(input_queue_, context_, std::move(socket));
 
             // connect to server
-            auto on_connect = [&](std::error_code error, asio::ip::tcp::endpoint endpoint)
+            auto on_connect = [this](std::error_code error, asio::ip::tcp::endpoint endpoint)
             {
                 if (error)
                 {
@@ -29,7 +29,7 @@ namespace net
             asio::ip::tcp::resolver resolver(*context_);
             asio::async_connect(connection_->GetSocket(), resolver.resolve(host, std::to_string(port)), on_connect);
 
-            auto run = [&]()
+            auto run = [this]()
             {
                 context_->run();
             };
