@@ -160,12 +160,12 @@ namespace net
 
     void Connection::ReadBody()
     {
-        std::vector<char> body;
-        body.resize(temp_input_item_->header.body_size);
+        auto body = std::make_shared<std::vector<char>>();
+        body->resize(temp_input_item_->header.body_size);
 
-        auto buffer = asio::buffer(body.data(), body.size());
+        auto buffer = asio::buffer(body->data(), body->size());
 
-        auto on_read = [this, &body](std::error_code error, std::size_t size)
+        auto on_read = [this, body](std::error_code error, std::size_t size)
         {
             if (error)
             {
@@ -179,7 +179,7 @@ namespace net
             }
 
             // successfully read body
-            temp_input_item_->body = ParseBody(temp_input_item_->header.command, body.data(), body.size());
+            temp_input_item_->body = ParseBody(temp_input_item_->header.command, body->data(), body->size());
             ReadOneMessage();
         };
         asio::async_read(socket_, buffer, on_read);
