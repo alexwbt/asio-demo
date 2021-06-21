@@ -1,0 +1,11 @@
+.vs/
+
+_bin/
+_int/
+
+*.user
+UserMacros.props
+
+# generated protobuf files
+/protobufs/src/*.cc
+/protobufs/src/*.h
