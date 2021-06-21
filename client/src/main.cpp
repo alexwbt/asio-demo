@@ -6,7 +6,16 @@ class Client : public net::Client
         net::EnCommand command,
         std::shared_ptr<const google::protobuf::Message> body
     ) {
-
+        switch (command)
+        {
+        case net::EnCommand::kSendText:
+        {
+            auto message = std::dynamic_pointer_cast<const proto::StringMessage>(body);
+            std::cout << message->message() << std::endl;
+            break;
+        }
+        //case net::EnCommand::kSetDisplayName:
+        }
     }
 };
 

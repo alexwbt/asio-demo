@@ -27,7 +27,7 @@ namespace net
                 connection_->Listen();
             };
             asio::ip::tcp::resolver resolver(*context_);
-            asio::async_connect(socket, resolver.resolve(host, std::to_string(port)), on_connect);
+            asio::async_connect(connection_->GetSocket(), resolver.resolve(host, std::to_string(port)), on_connect);
 
             auto run = [&]()
             {

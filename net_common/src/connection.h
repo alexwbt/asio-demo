@@ -28,6 +28,11 @@ namespace net
 
         bool Connected() const;
 
+        auto& GetSocket()
+        {
+            return socket_;
+        }
+
         void Listen();
         void Disconnect();
 

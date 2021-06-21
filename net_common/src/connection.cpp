@@ -46,7 +46,7 @@ namespace net
         if (context_->stopped())
             return;
 
-        auto push = [&]()
+        auto push = [&]() // TODO: capture shared ptr by value
         {
             auto item = std::make_shared<MessageItem>();
             item->header.command = command;
