@@ -9,26 +9,31 @@ namespace net
     {
     private:
         std::shared_ptr<asio::io_context> context_;
-        asio::ip::tcp::socket socket_;
+        std::shared_ptr<asio::ip::tcp::socket> socket_;
 
         uint32_t id_;
 
-        MessageQueue output_queue_;
+        MessageQueue<MessageItem> output_queue_;
 
-        std::shared_ptr<MessageQueue> input_queue_;
-        std::shared_ptr<MessageItem> temp_input_item_;
+        std::shared_ptr<MessageQueue<Packet>> input_queue_;
+        std::shared_ptr<Packet> temp_input_item_;
 
     public:
         Connection(
-            std::shared_ptr<MessageQueue> input_queue,
+            std::shared_ptr<MessageQueue<Packet>> input_queue,
             std::shared_ptr<asio::io_context> context,
-            asio::ip::tcp::socket socket,
+            std::shared_ptr<asio::ip::tcp::socket> socket,
             uint32_t id = 0
         );
 
         bool Connected() const;
 
-        auto& GetSocket()
+        uint32_t GetId() const
+        {
+            return id_;
+        }
+
+        std::shared_ptr<asio::ip::tcp::socket> GetSocket()
         {
             return socket_;
         }
@@ -39,7 +44,7 @@ namespace net
         /* Output */
     public:
         void PushMessage(
-            EnCommand command,
+            uint64_t command,
             std::shared_ptr<const google::protobuf::Message> body = nullptr
         );
     private:

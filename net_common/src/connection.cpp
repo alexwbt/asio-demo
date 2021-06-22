@@ -1,12 +1,11 @@
 #include "connection.h"
-#include "body_parser.h"
 
 namespace net
 {
     Connection::Connection(
-        std::shared_ptr<MessageQueue> input_queue,
+        std::shared_ptr<MessageQueue<Packet>> input_queue,
         std::shared_ptr<asio::io_context> context,
-        asio::ip::tcp::socket socket,
+        std::shared_ptr<asio::ip::tcp::socket> socket,
         uint32_t id
     ) :
         input_queue_(std::move(input_queue)),
@@ -17,7 +16,7 @@ namespace net
 
     bool Connection::Connected() const
     {
-        return socket_.is_open();
+        return socket_->is_open();
     }
 
     void Connection::Listen()
@@ -32,7 +31,7 @@ namespace net
 
         auto disconnect = [this]()
         {
-            socket_.close();
+            socket_->close();
         };
         asio::post(*context_, disconnect);
     }
@@ -40,7 +39,7 @@ namespace net
     /* Output */
 
     void Connection::PushMessage(
-        EnCommand command,
+        uint64_t command,
         std::shared_ptr<const google::protobuf::Message> body
     ) {
         if (context_->stopped())
@@ -76,12 +75,8 @@ namespace net
         {
             if (error)
             {
-                std::cout << "Connection(" << id_ << "): "
-                    << "Disconnected. (Failed to write header)"
-                    << std::endl;
-
                 // disconnects
-                socket_.close();
+                socket_->close();
                 return;
             }
 
@@ -91,7 +86,7 @@ namespace net
             else
                 WrittenOneMessage();
         };
-        asio::async_write(socket_, buffer, on_sent);
+        asio::async_write(*socket_, buffer, on_sent);
     }
 
     void Connection::SendBody()
@@ -107,19 +102,15 @@ namespace net
         {
             if (error)
             {
-                std::cout << "Connection(" << id_ << "): "
-                    << "Disconnected. (Failed to write body)"
-                    << std::endl;
-
                 // disconnects
-                socket_.close();
+                socket_->close();
                 return;
             }
 
             // successfully sent body
             WrittenOneMessage();
         };
-        asio::async_write(socket_, buffer, on_sent);
+        asio::async_write(*socket_, buffer, on_sent);
     }
 
     void Connection::WrittenOneMessage()
@@ -133,19 +124,15 @@ namespace net
 
     void Connection::ReadHeader()
     {
-        temp_input_item_ = std::make_shared<MessageItem>();
+        temp_input_item_ = std::make_shared<Packet>();
         auto buffer = asio::buffer(&temp_input_item_->header, sizeof(Header));
 
         auto on_read = [this](std::error_code error, std::size_t size)
         {
             if (error)
             {
-                std::cout << "Connection(" << id_ << "): "
-                    << "Disconnected. (Failed to read header)"
-                    << std::endl;
-
                 // disconnects
-                socket_.close();
+                socket_->close();
                 return;
             }
 
@@ -155,7 +142,7 @@ namespace net
             else
                 ReadOneMessage();
         };
-        asio::async_read(socket_, buffer, on_read);
+        asio::async_read(*socket_, buffer, on_read);
     }
 
     void Connection::ReadBody()
@@ -169,20 +156,16 @@ namespace net
         {
             if (error)
             {
-                std::cout << "Connection(" << id_ << "): "
-                    << "Disconnected. (Failed to read header)"
-                    << std::endl;
-
                 // disconnects
-                socket_.close();
+                socket_->close();
                 return;
             }
 
             // successfully read body
-            temp_input_item_->body = ParseBody(temp_input_item_->header.command, body->data(), body->size());
+            temp_input_item_->body = std::move(body);
             ReadOneMessage();
         };
-        asio::async_read(socket_, buffer, on_read);
+        asio::async_read(*socket_, buffer, on_read);
     }
 
     void Connection::ReadOneMessage()

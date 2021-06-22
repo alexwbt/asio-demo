@@ -8,7 +8,12 @@ namespace net
         acceptor_ = std::make_unique<asio::ip::tcp::acceptor>(
             *context_, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port));
 
-        input_queue_ = std::make_shared<MessageQueue>();
+        input_queue_ = std::make_shared<MessageQueue<Packet>>();
+    }
+
+    Server::~Server()
+    {
+        Stop();
     }
 
     /* Server */
@@ -17,20 +22,17 @@ namespace net
     {
         try
         {
-            Listen();
+            AcceptConnection();
             auto run = [this]()
             {
                 context_->run();
             };
             context_thread_ = std::thread(run);
         }
-        catch (std::exception& e)
+        catch (const std::exception&)
         {
-            std::cerr << "Error(Failed to start server): " << e.what() << std::endl;
             return false;
         }
-
-        std::cout << "Server accepting connections..." << std::endl;
         return true;
     }
 
@@ -40,32 +42,18 @@ namespace net
 
         if (context_thread_.joinable())
             context_thread_.join();
-
-        std::cout << "Server stopped." << std::endl;
     }
 
-    void Server::Listen()
+    void Server::AcceptConnection()
     {
         auto on_accept = [this](std::error_code error, asio::ip::tcp::socket socket)
         {
-            if (error)
+            if (!error)
             {
-                std::cout << "Error(Failed to accept connection): "
-                    << error.message() << std::endl;
-                return;
+                auto socket_ptr = std::make_shared<asio::ip::tcp::socket>(std::move(socket));
+                new_connection_queue_.Push(socket_ptr);
             }
-
-            auto connection = std::make_shared<Connection>(
-                input_queue_, context_, std::move(socket), next_connection_id_);
-
-            connection->Listen();
-            connections_.push_back(std::move(connection));
-
-            std::cout << "Connection(" << next_connection_id_ << "): "
-                << "Acccepted connection." << std::endl;
-
-            ++next_connection_id_;
-            Listen();
+            AcceptConnection();
         };
         acceptor_->async_accept(on_accept);
     }
@@ -73,27 +61,45 @@ namespace net
     /* Messages */
 
     void Server::SendToAll(
-        EnCommand command,
+        uint64_t command,
         std::shared_ptr<const google::protobuf::Message> body
     ) {
         for (const auto& connection : connections_)
             connection->PushMessage(command, body);
     }
 
-    void Server::HandleMessages()
+    void Server::Update(const ServerCallback& callback)
     {
-        while (true)
+        // handle new connections
+        auto handle_new_connection = [this, &callback](std::shared_ptr<asio::ip::tcp::socket> socket)
         {
-            auto item = input_queue_->Front();
-            auto empty = input_queue_->Pop();
+            auto connection = std::make_shared<Connection>(
+                input_queue_, context_, std::move(socket), next_connection_id_);
 
-            if (!item)
-                break;
+            connection->Listen();
+            connections_.push_back(connection);
 
-            OnMessage(item->header.command, item->body);
+            callback.OnClientConnect(std::move(connection));
 
-            if (empty)
-                break;
-        }
+            ++next_connection_id_;
+        };
+        new_connection_queue_.HandleAll(handle_new_connection);
+
+        // handle disconnected connections
+        auto remove_if = [&callback](std::shared_ptr<Connection> connection)
+        {
+            auto disconnected = !connection->Connected();
+            if (disconnected)
+                callback.OnClientDisconnect(connection);
+            return disconnected;
+        };
+        connections_.remove_if(remove_if);
+
+        // handle messages
+        auto handle_message = [&callback](std::shared_ptr<Packet> packet)
+        {
+            callback.OnMessage(std::move(packet));
+        };
+        input_queue_->HandleAll(handle_message);
     }
 }

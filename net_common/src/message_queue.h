@@ -7,17 +7,9 @@
 
 namespace net
 {
-    enum class EnCommand
-    {
-        kNull,
-        kSendText,
-        kSetDisplayName,
-        kMax
-    };
-
     struct Header
     {
-        EnCommand command = EnCommand::kNull;
+        uint64_t command = 0;
         uint64_t body_size = 0;
     };
 
@@ -27,21 +19,28 @@ namespace net
         std::shared_ptr<const google::protobuf::Message> body = nullptr;
     };
 
+    struct Packet
+    {
+        Header header;
+        std::shared_ptr<std::vector<char>> body = nullptr;
+    };
+
+    template <typename ItemType>
     class MessageQueue
     {
     private:
         std::mutex queue_mutex_;
 
-        std::queue<std::shared_ptr<MessageItem>> queue_;
+        std::queue<std::shared_ptr<ItemType>> queue_;
 
     public:
-        const std::queue<std::shared_ptr<MessageItem>>& GetQueue() const
+        const std::queue<std::shared_ptr<ItemType>>& GetQueue() const
         {
             return queue_;
         }
 
         // Push to queue, returns true if queue was empty before push.
-        bool Push(std::shared_ptr<MessageItem> item)
+        bool Push(std::shared_ptr<ItemType> item)
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
             auto was_empty = queue_.empty();
@@ -59,7 +58,7 @@ namespace net
             return queue_.empty();
         }
 
-        std::shared_ptr<MessageItem> Front()
+        std::shared_ptr<ItemType> Front()
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
             if (queue_.empty())
@@ -71,6 +70,17 @@ namespace net
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
             return queue_.empty();
+        }
+
+        void HandleAll(std::function<void(std::shared_ptr<ItemType>)> handler)
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex_);
+            while (!queue_.empty())
+            {
+                auto item = queue_.front();
+                handler(std::move(item));
+                queue_.pop();
+            }
         }
     };
 }

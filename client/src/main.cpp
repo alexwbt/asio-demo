@@ -1,33 +1,35 @@
 #include <client.h>
 
-class Client : public net::Client
+struct ClientCallback : public net::ClientCallback
 {
-    void OnMessage(
-        net::EnCommand command,
-        std::shared_ptr<const google::protobuf::Message> body
-    ) override {
-        std::cout << "You have a message (" << (int)command <<  ")." << std::endl;
-        switch (command)
-        {
-        case net::EnCommand::kSendText:
-        {
-            auto message = std::dynamic_pointer_cast<const proto::StringMessage>(body);
-            std::cout << message->message() << std::endl;
-            break;
-        }
-        //case net::EnCommand::kSetDisplayName:
-        }
+    void OnDisconnect(std::shared_ptr<net::Connection> c) const override
+    {
+        std::cout << "Disconnected from server." << std::endl;
+    }
+
+    void OnMessage(std::shared_ptr<const net::Packet> packet) const override
+    {
+        std::cout << "You have a message (" << packet->header.command << ")." << std::endl;
+        proto::StringMessage message;
+        if (message.ParseFromArray(packet->body->data(), static_cast<int>(packet->body->size())))
+            std::cout << message.message() << std::endl;
     }
 };
 
 int main()
 {
-    Client client;
-    client.Connect("127.0.0.1", 5625);
+    net::Client client;
+    auto success = client.Connect("127.0.0.1", 5625);
+    if (!success)
+    {
+        std::cout << "Failed to connect to server." << std::endl;
+        return -1;
+    }
+    std::cout << "Connected to server." << std::endl;
 
+    ClientCallback callback;
     while (true)
     {
-        client.HandleMessages();
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        client.Update(callback);
     }
 }

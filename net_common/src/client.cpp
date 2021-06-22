@@ -5,29 +5,25 @@ namespace net
     Client::Client()
     {
         context_ = std::make_shared<asio::io_context>();
-        input_queue_ = std::make_shared<MessageQueue>();
+        input_queue_ = std::make_shared<MessageQueue<Packet>>();
+    }
+
+    Client::~Client()
+    {
+        Disconnect();
     }
 
     bool Client::Connect(const std::string& host, uint16_t port)
     {
         try
         {
-            asio::ip::tcp::socket socket(*context_);
-            connection_ = std::make_unique<Connection>(input_queue_, context_, std::move(socket));
+            auto socket = std::make_shared<asio::ip::tcp::socket>(*context_);
+            connection_ = std::make_shared<Connection>(input_queue_, context_, std::move(socket));
 
-            // connect to server
-            auto on_connect = [this](std::error_code error, asio::ip::tcp::endpoint endpoint)
-            {
-                if (error)
-                {
-                    std::cout << "Error(Failed to connect to server): " << error.message() << std::endl;
-                    return;
-                }
-
-                connection_->Listen();
-            };
             asio::ip::tcp::resolver resolver(*context_);
-            asio::async_connect(connection_->GetSocket(), resolver.resolve(host, std::to_string(port)), on_connect);
+            asio::connect(*connection_->GetSocket(), resolver.resolve(host, std::to_string(port)));
+
+            connection_->Listen();
 
             auto run = [this]()
             {
@@ -37,35 +33,46 @@ namespace net
         }
         catch (std::exception& e)
         {
-            std::cerr << "Error: " << e.what() << "\n";
             return false;
         }
         return true;
     }
 
+    void Client::Disconnect()
+    {
+        connection_->Disconnect();
+
+        context_->stop();
+
+        if (context_thread_.joinable())
+            context_thread_.join();
+    }
+
+    bool Client::Connected()
+    {
+        return connection_->Connected();
+    }
+
     /* Messages */
 
     void Client::Send(
-        EnCommand command,
+        uint64_t command,
         std::shared_ptr<const google::protobuf::Message> body
     ) {
         connection_->PushMessage(command, body);
     }
 
-    void Client::HandleMessages()
+    void Client::Update(const ClientCallback& callback)
     {
-        while (true)
+        // handle disconnection
+        if (connection_ && !connection_->Connected())
+            callback.OnDisconnect(std::move(connection_));
+
+        // handle messages
+        auto handle_message = [&callback](std::shared_ptr<Packet> packet)
         {
-            auto item = input_queue_->Front();
-            auto empty = input_queue_->Pop();
-
-            if (!item)
-                break;
-
-            OnMessage(item->header.command, item->body);
-
-            if (empty)
-                break;
-        }
+            callback.OnMessage(std::move(packet));
+        };
+        input_queue_->HandleAll(handle_message);
     }
 }

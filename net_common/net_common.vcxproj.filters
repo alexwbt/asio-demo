@@ -20,9 +20,6 @@
     <ClInclude Include="src\asio_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\body_parser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\server.h">
       <Filter>Header Files</Filter>
     </ClInclude>
