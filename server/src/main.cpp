@@ -23,7 +23,7 @@ struct ServerCallback : public net::ServerCallback
 
 int main()
 {
-    constexpr uint64_t kPort = 5625;
+    constexpr uint16_t kPort = 5625;
     net::Server server(kPort);
     auto success = server.Start();
     if (!success)
