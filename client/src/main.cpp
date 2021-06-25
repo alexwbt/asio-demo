@@ -2,14 +2,13 @@
 
 struct ClientCallback : public net::ClientCallback
 {
-    void OnDisconnect(std::shared_ptr<net::Connection> c) const override
+    void OnDisconnect(std::shared_ptr<net::Connection> c) override
     {
         std::cout << "Disconnected from server." << std::endl;
     }
 
-    void OnMessage(std::shared_ptr<const net::Packet> packet) const override
+    void OnMessage(std::shared_ptr<const net::Packet> packet) override
     {
-        std::cout << "You have a message (" << packet->header.command << ")." << std::endl;
         proto::StringMessage message;
         if (message.ParseFromArray(packet->body->data(), static_cast<int>(packet->body->size())))
             std::cout << message.message() << std::endl;
@@ -27,9 +26,17 @@ int main()
     }
     std::cout << "Connected to server." << std::endl;
 
+    auto message = std::make_shared<proto::StringMessage>();
+
     ClientCallback callback;
     while (true)
     {
         client.Update(callback);
+
+        std::string input;
+        std::getline(std::cin, input);
+
+        message->set_message(input);
+        client.Send(1, message);
     }
 }

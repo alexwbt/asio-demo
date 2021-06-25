@@ -68,7 +68,7 @@ namespace net
             connection->PushMessage(command, body);
     }
 
-    void Server::Update(const ServerCallback& callback)
+    void Server::Update(ServerCallback& callback)
     {
         // handle new connections
         auto handle_new_connection = [this, &callback](std::shared_ptr<asio::ip::tcp::socket> socket)

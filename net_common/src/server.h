@@ -6,9 +6,9 @@ namespace net
 {
     struct ServerCallback
     {
-        virtual void OnClientConnect(std::shared_ptr<Connection>) const {}
-        virtual void OnClientDisconnect(std::shared_ptr<Connection>) const {}
-        virtual void OnMessage(std::shared_ptr<const Packet>) const {}
+        virtual void OnClientConnect(std::shared_ptr<Connection>) {}
+        virtual void OnClientDisconnect(std::shared_ptr<Connection>) {}
+        virtual void OnMessage(std::shared_ptr<const Packet>) {}
     };
 
     class Server final
@@ -43,6 +43,6 @@ namespace net
             std::shared_ptr<const google::protobuf::Message> body = nullptr
         );
 
-        void Update(const ServerCallback& callback);
+        void Update(ServerCallback& callback);
     };
 }

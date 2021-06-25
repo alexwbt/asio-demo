@@ -62,7 +62,7 @@ namespace net
         connection_->PushMessage(command, body);
     }
 
-    void Client::Update(const ClientCallback& callback)
+    void Client::Update(ClientCallback& callback)
     {
         // handle disconnection
         if (connection_ && !connection_->Connected())

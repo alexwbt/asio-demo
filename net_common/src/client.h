@@ -6,8 +6,8 @@ namespace net
 {
     struct ClientCallback
     {
-        virtual void OnDisconnect(std::shared_ptr<Connection>) const {}
-        virtual void OnMessage(std::shared_ptr<const Packet>) const {}
+        virtual void OnDisconnect(std::shared_ptr<Connection>) {}
+        virtual void OnMessage(std::shared_ptr<const Packet>) {}
     };
 
     class Client final
@@ -35,6 +35,6 @@ namespace net
 
         /* Messages */
 
-        void Update(const ClientCallback& callback);
+        void Update(ClientCallback& callback);
     };
 }
